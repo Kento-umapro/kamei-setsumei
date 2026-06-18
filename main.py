@@ -7,6 +7,8 @@
 """
 import os
 import re
+import json
+import base64
 import html as _htmllib
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -84,11 +86,25 @@ async def webhook_transcript(request: Request, x_webhook_secret: str = Header(de
     if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="invalid webhook secret")
 
-    body = await request.json()
-    transcript = _strip_html((body.get("transcript") or "").strip())
+    raw = (await request.body()).decode("utf-8", errors="replace")
+    ctype = request.headers.get("content-type", "")
+    source_file = "Zoom議事録メール"
+    transcript = ""
+    if "application/json" in ctype:
+        try:
+            body = json.loads(raw)
+            transcript = (body.get("transcript") or "").strip()
+            if not transcript and body.get("transcript_b64"):
+                transcript = base64.b64decode(body["transcript_b64"]).decode("utf-8", "replace").strip()
+            source_file = body.get("source_file") or body.get("subject") or source_file
+        except Exception:
+            transcript = raw  # 壊れたJSONでもロストさせず生本文として扱う
+    else:
+        transcript = raw  # text/plain 等はそのまま本文
+
+    transcript = _strip_html(transcript).strip()
     if not transcript:
         raise HTTPException(status_code=400, detail="transcript is required")
-    source_file = body.get("source_file") or body.get("subject") or ""
 
     m = _store(transcript, source_file)
     base = str(request.base_url).rstrip("/")
@@ -194,6 +210,22 @@ def meeting_edit_post(
     finally:
         db.close()
     return RedirectResponse(f"/meeting/{meeting_id}", status_code=302)
+
+
+# ---------- 削除 ----------
+@app.post("/meeting/{meeting_id}/delete")
+def meeting_delete(request: Request, meeting_id: int):
+    if not _is_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    try:
+        m = db.get(Meeting, meeting_id)
+        if m:
+            db.delete(m)
+            db.commit()
+    finally:
+        db.close()
+    return RedirectResponse("/", status_code=302)
 
 
 # ---------- 手動貼り付け登録 ----------
