@@ -13,7 +13,7 @@ import html as _htmllib
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, Request, Form, Header, HTTPException
+from fastapi import FastAPI, Request, Form, Header, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
@@ -80,9 +80,50 @@ def _store(transcript: str, source_file: str = "") -> Meeting:
         db.close()
 
 
+def _store_pending(transcript: str, source_file: str = "") -> Meeting:
+    """生データだけで即保存（要約は後追い）。webhookを即200で返すため。"""
+    m = Meeting(
+        company_name="（要約処理中…）",
+        title="（要約処理中…）",
+        source_file=source_file,
+        raw_transcript=transcript,
+        summary={"summary": "（要約処理中… 少し待って再読み込みしてください）", "_pending": True},
+    )
+    db = SessionLocal()
+    try:
+        db.add(m)
+        db.commit()
+        db.refresh(m)
+        return m
+    finally:
+        db.close()
+
+
+def _summarize_into(meeting_id: int) -> None:
+    """バックグラウンドで要約 → 該当レコードを更新。失敗時も生データは残る。"""
+    db = SessionLocal()
+    try:
+        m = db.get(Meeting, meeting_id)
+        if not m:
+            return
+        try:
+            data = summarize(m.raw_transcript)
+        except Exception as e:
+            data = {"summary": "（自動要約に失敗しました。元データから手動で確認してください）", "_error": str(e)}
+        m.meeting_date = str(data.get("meeting_date") or "")
+        m.company_name = str(data.get("company_name") or "（企業名不明）")
+        m.meeting_type = str(data.get("meeting_type") or "")
+        m.temperature = str(data.get("temperature") or "")
+        m.title = f"{data.get('company_name') or '面談'} / {data.get('meeting_type') or ''}".strip(" /")
+        m.summary = data
+        db.commit()
+    finally:
+        db.close()
+
+
 # ---------- Webhook（Make.com 用） ----------
 @app.post("/webhook/transcript")
-async def webhook_transcript(request: Request, x_webhook_secret: str = Header(default="")):
+async def webhook_transcript(request: Request, background_tasks: BackgroundTasks, x_webhook_secret: str = Header(default="")):
     if WEBHOOK_SECRET and x_webhook_secret != WEBHOOK_SECRET:
         raise HTTPException(status_code=401, detail="invalid webhook secret")
 
@@ -106,9 +147,11 @@ async def webhook_transcript(request: Request, x_webhook_secret: str = Header(de
     if not transcript:
         raise HTTPException(status_code=400, detail="transcript is required")
 
-    m = _store(transcript, source_file)
+    # 即200で返す（要約は裏で実行）。これでMake側の40秒タイムアウトを回避。
+    m = _store_pending(transcript, source_file)
+    background_tasks.add_task(_summarize_into, m.id)
     base = str(request.base_url).rstrip("/")
-    return JSONResponse({"id": m.id, "url": f"{base}/meeting/{m.id}", "company_name": m.company_name})
+    return JSONResponse({"id": m.id, "url": f"{base}/meeting/{m.id}", "status": "processing"})
 
 
 # ---------- 認証 ----------
