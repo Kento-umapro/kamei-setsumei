@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}どてっぱん 加盟面談アーカイブ{% endblock %}</title>
+<style>
+  :root{
+    --purple:#6d28d9; --purple-2:#9333ea; --purple-light:#ede9fe;
+    --ink:#1f2937; --muted:#6b7280; --line:#e5e7eb; --bg:#f6f5fb; --card:#ffffff;
+    --a:#dc2626; --b:#d97706; --c:#64748b;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Noto Sans JP",Meiryo,sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.75;-webkit-font-smoothing:antialiased;}
+  a{color:var(--purple);}
+  header{background:linear-gradient(135deg,var(--purple),var(--purple-2));color:#fff;
+          padding:16px 24px;display:flex;align-items:center;justify-content:space-between;}
+  header .brand{font-size:17px;font-weight:700;letter-spacing:.02em;}
+  header nav a{color:#fff;text-decoration:none;font-size:13px;opacity:.9;margin-left:16px;}
+  header nav a:hover{opacity:1;text-decoration:underline;}
+  .container{max-width:1000px;margin:0 auto;padding:28px 24px 64px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin-bottom:18px;
+        box-shadow:0 1px 2px rgba(16,24,40,.04);}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;}
+  th,td{padding:13px 14px;text-align:left;border-bottom:1px solid var(--line);font-size:14px;vertical-align:middle;}
+  th{background:#faf9ff;color:var(--muted);font-weight:600;font-size:12px;letter-spacing:.04em;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:#fbfaff;}
+  .badge{display:inline-block;min-width:22px;text-align:center;padding:2px 9px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;}
+  .badge.A{background:var(--a);} .badge.B{background:var(--b);} .badge.C{background:var(--c);} .badge.none{background:#cbd5e1;}
+  .pill{display:inline-block;background:var(--purple-light);color:var(--purple);font-size:11px;font-weight:600;
+        padding:3px 10px;border-radius:999px;}
+  h2.section{font-size:15px;margin:26px 0 10px;padding-left:11px;border-left:4px solid var(--purple);}
+  ul.clean{margin:6px 0;padding-left:20px;} ul.clean li{margin:4px 0;}
+  .meta{color:var(--muted);font-size:13px;}
+  .btn{display:inline-block;background:var(--purple);color:#fff;text-decoration:none;border:none;cursor:pointer;
+       padding:11px 20px;border-radius:10px;font-size:14px;font-weight:600;}
+  .btn:hover{background:#5b21b6;}
+  .btn.ghost{background:#fff;color:var(--purple);border:1px solid var(--purple);}
+  textarea{width:100%;min-height:340px;border:1px solid var(--line);border-radius:10px;padding:13px;font-size:14px;
+           font-family:inherit;line-height:1.6;}
+  input[type=text],input[type=password]{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:15px;}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 5px;font-weight:600;}
+  .empty{text-align:center;color:var(--muted);padding:48px 0;}
+  .next-table td{font-size:13px;}
+  .toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;gap:12px;flex-wrap:wrap;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+  @media(max-width:680px){.grid2{grid-template-columns:1fr;}}
+  details.raw summary{cursor:pointer;color:var(--muted);font-size:13px;}
+  details.raw pre{white-space:pre-wrap;background:#faf9ff;border:1px solid var(--line);border-radius:10px;padding:14px;font-size:12px;line-height:1.6;}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">🟣 どてっぱん 加盟面談アーカイブ</div>
+  <nav>
+    {% if request.session.get('auth') %}
+      <a href="/">一覧</a><a href="/new">新規登録</a><a href="/logout">ログアウト</a>
+    {% endif %}
+  </nav>
+</header>
+<div class="container">{% block content %}{% endblock %}</div>
+</body>
+</html>

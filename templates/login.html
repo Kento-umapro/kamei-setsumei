@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card" style="max-width:420px;margin:48px auto;">
+  <h2 style="margin-top:0;">ログイン</h2>
+  {% if error %}<p style="color:var(--a);font-size:13px;">{{ error }}</p>{% endif %}
+  <form method="post" action="/login">
+    <label>パスワード</label>
+    <input type="password" name="password" autofocus required>
+    <div style="margin-top:18px;"><button class="btn" type="submit">入る</button></div>
+  </form>
+</div>
+{% endblock %}

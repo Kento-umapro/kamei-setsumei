@@ -1,0 +1,50 @@
+{
+  "name": "Zoom議事録メール(IMAP) → どてっぱん加盟面談アーカイブ",
+  "flow": [
+    {
+      "id": 1,
+      "module": "email:TriggerNewEmail",
+      "version": 6,
+      "metadata": { "designer": { "x": 0, "y": 0 } },
+      "mapper": {
+        "folder": "★Zoom要約メールを振り分ける専用IMAPフォルダ（例: ZoomGijiroku）★",
+        "criteria": "all",
+        "markSeen": true,
+        "maxResults": "5"
+      },
+      "comment": "★加盟資料請求と同じ『Email』汎用コネクタ（緑の封筒／Others(IMAP)接続）。Gmailコネクタ(赤M)ではない。受信は kento.nishimura@umapro-jp.com。差出人 no-reply@zoom.us・件名に『ミーティングアセット』を含むZoom要約メールを振り分けた専用フォルダを15分間隔で監視。"
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "metadata": { "designer": { "x": 300, "y": 0 } },
+      "mapper": {
+        "url": "https://★あなたのRailwayドメイン★/webhook/transcript",
+        "method": "post",
+        "headers": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Webhook-Secret", "value": "★RailwayのWEBHOOK_SECRETと同じ値★" }
+        ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "data": "{\n  \"transcript\": {{json(ifempty(1.text, 1.html))}},\n  \"subject\": {{json(1.subject)}}\n}",
+        "parseResponse": true
+      },
+      "comment": "メール本文（text、無ければhtml）を文字起こしとしてRailwayへ送信。Railway側で要約→HTML化→アーカイブ保存まで自動。加盟資料シナリオのHTTPモジュールと同型。"
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": { "orphans": [] }
+  }
+}

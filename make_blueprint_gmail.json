@@ -1,0 +1,49 @@
+{
+  "name": "Zoom議事録メール → どてっぱん加盟面談アーカイブ",
+  "flow": [
+    {
+      "id": 1,
+      "module": "google-email:TriggerNewEmail",
+      "version": 3,
+      "metadata": { "designer": { "x": 0, "y": 0 } },
+      "mapper": {
+        "folder": "★Zoom議事録メールに付けるGmailラベル（例: FC議事録）★",
+        "maxResults": "5",
+        "markSeen": true
+      },
+      "comment": "Gmailを定期ポーリング。Zoomの会議要約メール（from:zoom.us 等）を振り分けたラベルを監視（＝議事録を自動で取りにいく入口）。"
+    },
+    {
+      "id": 2,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "metadata": { "designer": { "x": 300, "y": 0 } },
+      "mapper": {
+        "url": "https://★あなたのRailwayドメイン★/webhook/transcript",
+        "method": "post",
+        "headers": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Webhook-Secret", "value": "★RailwayのWEBHOOK_SECRETと同じ値★" }
+        ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "data": "{\n  \"transcript\": {{json(ifempty(1.text, 1.html))}},\n  \"subject\": {{json(1.subject)}}\n}",
+        "parseResponse": true
+      },
+      "comment": "メール本文（textが空ならhtml）を文字起こしとしてRailwayへ送信。Railway側で要約→HTML化→アーカイブ保存まで自動。"
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": { "orphans": [] }
+  }
+}

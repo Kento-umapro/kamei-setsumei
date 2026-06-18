@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="toolbar">
+  <a href="/" class="meta">← 一覧へ</a>
+  <span class="badge {{ m.temperature if m.temperature in ['A','B','C'] else 'none' }}">確度 {{ m.temperature or '−' }}</span>
+</div>
+
+<div class="card">
+  <h2 style="margin:0 0 6px;">{{ m.company_name }}</h2>
+  <div class="meta">
+    {% if m.meeting_type %}<span class="pill">{{ m.meeting_type }}</span>　{% endif %}
+    面談日：{{ m.meeting_date or '—' }}　/　登録：{{ m.created_at.strftime('%Y-%m-%d %H:%M') }}
+    {% if m.source_file %}　/　元：{{ m.source_file }}{% endif %}
+  </div>
+  {% if s.contact_persons %}<div class="meta" style="margin-top:6px;">担当者：{{ s.contact_persons|join('、') }}</div>{% endif %}
+
+  <h2 class="section">サマリー</h2>
+  <p>{{ s.summary or '—' }}</p>
+  {% if s.temperature_reason %}<p class="meta">確度の根拠：{{ s.temperature_reason }}</p>{% endif %}
+
+  <div class="grid2">
+    <div>
+      <h2 class="section">先方の関心</h2>
+      {% if s.prospect_interests %}<ul class="clean">{% for x in s.prospect_interests %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p class="meta">—</p>{% endif %}
+    </div>
+    <div>
+      <h2 class="section">先方の懸念</h2>
+      {% if s.prospect_concerns %}<ul class="clean">{% for x in s.prospect_concerns %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p class="meta">—</p>{% endif %}
+    </div>
+  </div>
+
+  <h2 class="section">主な論点</h2>
+  {% if s.key_topics %}<ul class="clean">{% for x in s.key_topics %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p class="meta">—</p>{% endif %}
+
+  <h2 class="section">当社からの説明</h2>
+  {% if s.our_explanations %}<ul class="clean">{% for x in s.our_explanations %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p class="meta">—</p>{% endif %}
+
+  <h2 class="section">決定事項</h2>
+  {% if s.decisions %}<ul class="clean">{% for x in s.decisions %}<li>{{ x }}</li>{% endfor %}</ul>{% else %}<p class="meta">—</p>{% endif %}
+
+  <h2 class="section">ネクストアクション</h2>
+  {% if s.next_actions %}
+  <table class="next-table">
+    <thead><tr><th>担当</th><th>やること</th><th>期限</th></tr></thead>
+    <tbody>
+      {% for a in s.next_actions %}
+      <tr><td>{{ a.who or '—' }}</td><td>{{ a.what or '—' }}</td><td>{{ a.due or '未定' }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="meta">—</p>{% endif %}
+
+  {% if s.open_questions %}
+  <h2 class="section">持ち帰り・未解決</h2>
+  <ul class="clean">{% for x in s.open_questions %}<li>{{ x }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if s._error %}<p style="color:var(--a);font-size:12px;margin-top:18px;">⚠ 自動要約エラー：{{ s._error }}</p>{% endif %}
+
+  <h2 class="section">元の文字起こし</h2>
+  <details class="raw"><summary>展開する</summary><pre>{{ m.raw_transcript }}</pre></details>
+</div>
+{% endblock %}

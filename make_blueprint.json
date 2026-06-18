@@ -1,0 +1,61 @@
+{
+  "name": "Speakly議事録 → どてっぱん加盟面談アーカイブ",
+  "flow": [
+    {
+      "id": 1,
+      "module": "google-drive:watchFilesInAFolder",
+      "version": 4,
+      "metadata": { "designer": { "x": 0, "y": 0 } },
+      "parameters": {},
+      "mapper": {
+        "folderId": "★ここにSpeakly議事録を保存するDriveフォルダIDを設定★",
+        "limit": "10"
+      },
+      "comment": "Speaklyが議事録を書き出す（or 手動保存する）Driveフォルダを監視。新規ファイルで起動。"
+    },
+    {
+      "id": 2,
+      "module": "google-drive:getAFile",
+      "version": 4,
+      "metadata": { "designer": { "x": 300, "y": 0 } },
+      "mapper": {
+        "file": "{{1.id}}",
+        "formatGoogleDocs": "text/plain",
+        "convertFile": true
+      },
+      "comment": "ファイル本文をプレーンテキストで取得。Googleドキュメント形式もtext/plainに変換。"
+    },
+    {
+      "id": 3,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "metadata": { "designer": { "x": 600, "y": 0 } },
+      "mapper": {
+        "url": "https://★あなたのRailwayドメイン★/webhook/transcript",
+        "method": "post",
+        "headers": [
+          { "name": "Content-Type", "value": "application/json" },
+          { "name": "X-Webhook-Secret", "value": "★Railwayに設定したWEBHOOK_SECRETと同じ値★" }
+        ],
+        "bodyType": "raw",
+        "contentType": "application/json",
+        "data": "{\n  \"transcript\": {{json(2.data)}},\n  \"source_file\": {{json(1.name)}}\n}",
+        "parseResponse": true
+      },
+      "comment": "Railwayのwebhookへ文字起こし本文を送信。Railway側でClaude要約→HTML化→アーカイブ保存まで自動実行。"
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": { "orphans": [] }
+  }
+}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="toolbar">
+  <div class="meta">登録件数：{{ meetings|length }} 件</div>
+  <a class="btn" href="/new">＋ 文字起こしを登録</a>
+</div>
+
+{% if meetings %}
+<table>
+  <thead>
+    <tr><th>確度</th><th>企業名</th><th>種別</th><th>面談日</th><th>登録</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for m in meetings %}
+    <tr>
+      <td><span class="badge {{ m.temperature if m.temperature in ['A','B','C'] else 'none' }}">{{ m.temperature or '−' }}</span></td>
+      <td><strong>{{ m.company_name }}</strong></td>
+      <td>{% if m.meeting_type %}<span class="pill">{{ m.meeting_type }}</span>{% endif %}</td>
+      <td class="meta">{{ m.meeting_date or '—' }}</td>
+      <td class="meta">{{ m.created_at.strftime('%m/%d %H:%M') }}</td>
+      <td><a href="/meeting/{{ m.id }}">開く →</a></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<div class="card empty">まだ登録がありません。<br>「＋ 文字起こしを登録」から、または Make.com 連携で自動的にたまっていきます。</div>
+{% endif %}
+{% endblock %}

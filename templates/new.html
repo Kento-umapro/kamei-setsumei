@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="toolbar"><a href="/" class="meta">← 一覧へ</a></div>
+<div class="card">
+  <h2 style="margin-top:0;">文字起こしを登録</h2>
+  <p class="meta">Speakly などの議事録テキストを貼り付けて「要約して保存」を押すと、自動で構造化されてアーカイブに追加されます。</p>
+  <form method="post" action="/new">
+    <label>元ファイル名・メモ（任意）</label>
+    <input type="text" name="source_file" placeholder="例：20260618_株式会社○○_加盟説明">
+    <label>文字起こし本文</label>
+    <textarea name="transcript" placeholder="ここに議事録（文字起こし）を貼り付け" required></textarea>
+    <div style="margin-top:16px;"><button class="btn" type="submit">要約して保存</button></div>
+  </form>
+</div>
+{% endblock %}
