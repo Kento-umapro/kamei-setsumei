@@ -340,6 +340,20 @@ def meeting_delete(request: Request, meeting_id: int):
     return RedirectResponse("/", status_code=302)
 
 
+# ---------- 全消去 ----------
+@app.post("/admin/clear")
+def admin_clear(request: Request):
+    if not _is_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    try:
+        db.query(Meeting).delete()
+        db.commit()
+    finally:
+        db.close()
+    return RedirectResponse("/", status_code=302)
+
+
 # ---------- 手動貼り付け登録 ----------
 @app.get("/new", response_class=HTMLResponse)
 def new_get(request: Request):
