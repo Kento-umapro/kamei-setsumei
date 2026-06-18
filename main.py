@@ -11,7 +11,14 @@ import json
 import base64
 import html as _htmllib
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+
+try:
+    from zoneinfo import ZoneInfo
+    _JST = ZoneInfo("Asia/Tokyo")
+except Exception:  # zoneinfo無い環境の保険
+    _JST = None
 
 from fastapi import FastAPI, Request, Form, Header, HTTPException, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -49,8 +56,41 @@ def _strip_html(text: str) -> str:
     return text.strip()
 
 
+def _to_jst_str(raw: str) -> str:
+    """メールの受信日時(ISO8601 or RFC2822)を JST の 'YYYY-MM-DD HH:MM' 文字列に整える。"""
+    raw = (raw or "").strip()
+    if not raw:
+        return ""
+    dt = None
+    try:  # ISO8601（Makeのdateは大抵これ）
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except Exception:
+        dt = None
+    if dt is None:
+        try:  # RFC2822（メールDateヘッダ素のまま）
+            dt = parsedate_to_datetime(raw)
+        except Exception:
+            dt = None
+    if dt is None:
+        return raw[:16]  # 解釈できなければ先頭だけ残す
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    if _JST is not None:
+        dt = dt.astimezone(_JST)
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
 def _is_auth(request: Request) -> bool:
     return bool(request.session.get("auth"))
+
+
+def _is_false(v) -> bool:
+    """is_franchise 等が『明確にfalse』か判定（不明・Noneはfalse扱いにしない=捨てない）。"""
+    if isinstance(v, bool):
+        return v is False
+    if isinstance(v, str):
+        return v.strip().lower() in ("false", "no", "0", "いいえ", " no")
+    return False
 
 
 def _store(transcript: str, source_file: str = "") -> Meeting:
@@ -80,14 +120,15 @@ def _store(transcript: str, source_file: str = "") -> Meeting:
         db.close()
 
 
-def _store_pending(transcript: str, source_file: str = "") -> Meeting:
+def _store_pending(transcript: str, source_file: str = "", meeting_date: str = "") -> Meeting:
     """生データだけで即保存（要約は後追い）。webhookを即200で返すため。"""
     m = Meeting(
+        meeting_date=meeting_date,
         company_name="（要約処理中…）",
         title="（要約処理中…）",
         source_file=source_file,
         raw_transcript=transcript,
-        summary={"summary": "（要約処理中… 少し待って再読み込みしてください）", "_pending": True},
+        summary={"summary": "（要約処理中… 少し待って再読み込みしてください）", "_pending": True, "meeting_date": meeting_date},
     )
     db = SessionLocal()
     try:
@@ -99,7 +140,7 @@ def _store_pending(transcript: str, source_file: str = "") -> Meeting:
         db.close()
 
 
-def _summarize_into(meeting_id: int) -> None:
+def _summarize_into(meeting_id: int, meeting_date_override: str = "") -> None:
     """バックグラウンドで要約 → 該当レコードを更新。失敗時も生データは残る。"""
     db = SessionLocal()
     try:
@@ -110,11 +151,19 @@ def _summarize_into(meeting_id: int) -> None:
             data = summarize(m.raw_transcript)
         except Exception as e:
             data = {"summary": "（自動要約に失敗しました。元データから手動で確認してください）", "_error": str(e)}
-        m.meeting_date = str(data.get("meeting_date") or "")
+        # 明らかに加盟面談でない会議は保存しない（要約成功時のみ判定。失敗時は捨てない）
+        if _is_false(data.get("is_franchise")):
+            db.delete(m)
+            db.commit()
+            return
+        # 面談日はメール受信日時を優先（無ければ要約の抽出値）
+        mdate = meeting_date_override or str(data.get("meeting_date") or "")
+        m.meeting_date = mdate
         m.company_name = str(data.get("company_name") or "（企業名不明）")
         m.meeting_type = str(data.get("meeting_type") or "")
         m.temperature = str(data.get("temperature") or "")
         m.title = f"{data.get('company_name') or '面談'} / {data.get('meeting_type') or ''}".strip(" /")
+        data["meeting_date"] = mdate
         m.summary = data
         db.commit()
     finally:
@@ -131,6 +180,7 @@ async def webhook_transcript(request: Request, background_tasks: BackgroundTasks
     ctype = request.headers.get("content-type", "")
     source_file = "Zoom議事録メール"
     transcript = ""
+    received_raw = ""
     if "application/json" in ctype:
         try:
             body = json.loads(raw)
@@ -138,6 +188,7 @@ async def webhook_transcript(request: Request, background_tasks: BackgroundTasks
             if not transcript and body.get("transcript_b64"):
                 transcript = base64.b64decode(body["transcript_b64"]).decode("utf-8", "replace").strip()
             source_file = body.get("source_file") or body.get("subject") or source_file
+            received_raw = body.get("received_at") or body.get("received") or ""
         except Exception:
             transcript = raw  # 壊れたJSONでもロストさせず生本文として扱う
     else:
@@ -147,9 +198,27 @@ async def webhook_transcript(request: Request, background_tasks: BackgroundTasks
     if not transcript:
         raise HTTPException(status_code=400, detail="transcript is required")
 
+    meeting_date = _to_jst_str(received_raw)  # 面談日＝メール受信日時(JST)
+
+    # 同一本文は重複作成せず、面談日だけ更新（バックフィル再実行を安全に）
+    db = SessionLocal()
+    try:
+        existing = db.query(Meeting).filter(Meeting.raw_transcript == transcript).first()
+        if existing:
+            eid = existing.id
+            if meeting_date:
+                existing.meeting_date = meeting_date
+                data = dict(existing.summary or {})
+                data["meeting_date"] = meeting_date
+                existing.summary = data
+                db.commit()
+            return JSONResponse({"id": eid, "status": "updated"})
+    finally:
+        db.close()
+
     # 即200で返す（要約は裏で実行）。これでMake側の40秒タイムアウトを回避。
-    m = _store_pending(transcript, source_file)
-    background_tasks.add_task(_summarize_into, m.id)
+    m = _store_pending(transcript, source_file, meeting_date)
+    background_tasks.add_task(_summarize_into, m.id, meeting_date)
     base = str(request.base_url).rstrip("/")
     return JSONResponse({"id": m.id, "url": f"{base}/meeting/{m.id}", "status": "processing"})
 

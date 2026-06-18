@@ -8,7 +8,7 @@
 {% if meetings %}
 <table>
   <thead>
-    <tr><th>確度</th><th>企業名</th><th>種別</th><th>面談日</th><th>登録</th><th></th></tr>
+    <tr><th>確度</th><th>企業名</th><th>種別</th><th>面談日</th><th>登録</th><th></th><th></th></tr>
   </thead>
   <tbody>
     {% for m in meetings %}
@@ -19,6 +19,7 @@
       <td class="meta">{{ m.meeting_date or '—' }}</td>
       <td class="meta">{{ m.created_at.strftime('%m/%d %H:%M') }}</td>
       <td><a href="/meeting/{{ m.id }}">開く →</a></td>
+      <td><form method="post" action="/meeting/{{ m.id }}/delete" onsubmit="return confirm('「{{ m.company_name }}」を削除します。よろしいですか？');" style="margin:0;"><button type="submit" title="削除" style="background:none;border:none;color:#cbd5e1;cursor:pointer;font-size:15px;padding:2px 6px;">🗑</button></form></td>
     </tr>
     {% endfor %}
   </tbody>

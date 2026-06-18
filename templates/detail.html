@@ -4,6 +4,9 @@
   <a href="/" class="meta">← 一覧へ</a>
   <span>
     <a href="/meeting/{{ m.id }}/edit" class="btn ghost" style="padding:7px 14px;font-size:13px;">✎ 編集</a>
+    <form method="post" action="/meeting/{{ m.id }}/delete" onsubmit="return confirm('この面談メモを削除します。よろしいですか？');" style="display:inline;margin:0 0 0 6px;">
+      <button type="submit" class="btn ghost" style="padding:7px 14px;font-size:13px;color:#dc2626;border-color:#f0a8a8;">🗑 削除</button>
+    </form>
     <span class="badge {{ m.temperature if m.temperature in ['A','B','C'] else 'none' }}" style="margin-left:8px;">確度 {{ m.temperature or '−' }}</span>
   </span>
 </div>
