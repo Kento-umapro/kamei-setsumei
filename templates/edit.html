@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="toolbar"><a href="/meeting/{{ m.id }}" class="meta">← 戻る</a></div>
+<div class="card">
+  <h2 style="margin-top:0;">面談メモを編集</h2>
+  <p class="meta">自動抽出がズレたとき（題名・確度・要約など）をここで直せます。</p>
+  <form method="post" action="/meeting/{{ m.id }}/edit">
+    <label>会社名（題名）</label>
+    <input type="text" name="company_name" value="{{ m.company_name }}" required>
+
+    <div class="grid2">
+      <div>
+        <label>種別</label>
+        <input type="text" name="meeting_type" value="{{ m.meeting_type }}" placeholder="初回面談 / 加盟説明 など">
+      </div>
+      <div>
+        <label>面談日（YYYY-MM-DD）</label>
+        <input type="text" name="meeting_date" value="{{ m.meeting_date }}" placeholder="2026-06-18">
+      </div>
+    </div>
+
+    <label>確度</label>
+    <select name="temperature" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:15px;background:#fff;">
+      {% for t in ['', 'A', 'B', 'C'] %}
+      <option value="{{ t }}" {% if m.temperature == t %}selected{% endif %}>{{ t if t else '（未設定）' }}</option>
+      {% endfor %}
+    </select>
+
+    <label>確度の根拠</label>
+    <input type="text" name="temperature_reason" value="{{ s.temperature_reason or '' }}">
+
+    <label>サマリー</label>
+    <textarea name="summary_text" style="min-height:140px;">{{ s.summary or '' }}</textarea>
+
+    <div style="margin-top:18px;display:flex;gap:10px;">
+      <button class="btn" type="submit">保存</button>
+      <a class="btn ghost" href="/meeting/{{ m.id }}">キャンセル</a>
+    </div>
+  </form>
+  <p class="meta" style="margin-top:16px;">※ 関心/懸念/論点/ネクストアクション等のリスト項目の編集が必要になったら追加します。</p>
+</div>
+{% endblock %}

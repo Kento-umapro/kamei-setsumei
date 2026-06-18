@@ -143,6 +143,59 @@ def meeting_detail(request: Request, meeting_id: int):
     return templates.TemplateResponse(request, "detail.html", {"m": m, "s": m.summary or {}})
 
 
+# ---------- 編集（題名など手直し） ----------
+@app.get("/meeting/{meeting_id}/edit", response_class=HTMLResponse)
+def meeting_edit_get(request: Request, meeting_id: int):
+    if not _is_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    try:
+        m = db.get(Meeting, meeting_id)
+    finally:
+        db.close()
+    if not m:
+        raise HTTPException(status_code=404, detail="not found")
+    return templates.TemplateResponse(request, "edit.html", {"m": m, "s": m.summary or {}})
+
+
+@app.post("/meeting/{meeting_id}/edit")
+def meeting_edit_post(
+    request: Request,
+    meeting_id: int,
+    company_name: str = Form(...),
+    meeting_type: str = Form(default=""),
+    meeting_date: str = Form(default=""),
+    temperature: str = Form(default=""),
+    summary_text: str = Form(default=""),
+    temperature_reason: str = Form(default=""),
+):
+    if not _is_auth(request):
+        return RedirectResponse("/login", status_code=302)
+    db = SessionLocal()
+    try:
+        m = db.get(Meeting, meeting_id)
+        if not m:
+            raise HTTPException(status_code=404, detail="not found")
+        m.company_name = company_name.strip() or "（企業名不明）"
+        m.meeting_type = meeting_type.strip()
+        m.meeting_date = meeting_date.strip()
+        m.temperature = temperature.strip()
+        m.title = f"{m.company_name} / {m.meeting_type}".strip(" /")
+        # JSONは再代入しないと変更が検知されない
+        data = dict(m.summary or {})
+        data["company_name"] = m.company_name
+        data["meeting_type"] = m.meeting_type
+        data["meeting_date"] = m.meeting_date
+        data["temperature"] = m.temperature
+        data["summary"] = summary_text.strip()
+        data["temperature_reason"] = temperature_reason.strip()
+        m.summary = data
+        db.commit()
+    finally:
+        db.close()
+    return RedirectResponse(f"/meeting/{meeting_id}", status_code=302)
+
+
 # ---------- 手動貼り付け登録 ----------
 @app.get("/new", response_class=HTMLResponse)
 def new_get(request: Request):
